@@ -44,6 +44,7 @@ class Tabular(Masker):
         """
 
         self.output_dataframe = False
+
         if isinstance(data, pd.DataFrame):
             self.feature_names = data.columns
             data = data.values
@@ -61,10 +62,14 @@ class Tabular(Masker):
         self.clustering = clustering
         self.max_samples = max_samples
 
-        # # warn users about large background data sets
-        # if self.data.shape[0] > 100:
-        #     log.warning("Using " + str(self.data.shape[0]) + " background data samples could cause slower " +
-        #                 "run times. Consider shap.utils.sample(data, K) to summarize the background using only K samples.")
+        # warn users about large background data sets
+        if self.data.shape[0] > 100:
+            print(
+                "Using " + str(self.data.shape[0]) +
+                " background data samples could cause slower run times. " +
+                "Consider shap.utils.sample(data, K) to summarize the background " +
+                "using only K samples."
+            )
 
         # compute the clustering of the data
         if clustering is not None:
@@ -91,7 +96,10 @@ class Tabular(Masker):
         # self.changed_rows = np.ones(self.data.shape[0], dtype=bool)
 
     def __call__(self, mask, x):
+        # x is the sample to explain from user
         mask = self._standardize_mask(mask, x)
+
+        # self._last_mark [False for nFeatures]
 
         # make sure we are given a single sample
         if len(x.shape) != 1 or x.shape[0] != self.data.shape[1]:
@@ -101,17 +109,29 @@ class Tabular(Masker):
         if np.issubdtype(mask.dtype, np.integer):
 
             variants = ~self.invariants(x)
+
             curr_delta_inds = np.zeros(len(mask), dtype=int)
+            # list of for current indices during delta masking, length of (nFeatures with variation*2)+1
+            # >> (1503, )
+
             num_masks = (mask >= 0).sum()
+            # number of masks required <int>
+            # >> 1503
+
             varying_rows_out = np.zeros((num_masks, self.shape[0]), dtype=bool)
+            # (1503, 90)
             masked_inputs_out = np.zeros((num_masks * self.shape[0], self.shape[1]))
+            # (1503*90=135270, 752)
+
             self._last_mask[:] = False
             self._masked_data[:] = self.data
+
             _delta_masking(
                 mask, x, curr_delta_inds,
-                varying_rows_out, self._masked_data, self._last_mask, self. data, variants,
+                varying_rows_out, self._masked_data, self._last_mask, self.data, variants,
                 masked_inputs_out, MaskedModel.delta_mask_noop_value
             )
+
             if self.output_dataframe:
                 return (pd.DataFrame(masked_inputs_out, columns=self.feature_names),), varying_rows_out
 
@@ -148,7 +168,6 @@ class Tabular(Masker):
                 "The passed data does not match the background shape expected by the masker! The data of shape " + \
                 str(x.shape) + " was passed while the masker expected data of shape " + str(self.data.shape[1:]) + "."
             )
-
         return np.isclose(x, self.data)
 
     def save(self, out_file):
@@ -188,9 +207,13 @@ class Tabular(Masker):
 def _single_delta_mask(dind, masked_inputs, last_mask, data, x, noop_code):
     if dind == noop_code:
         pass
+
+    # If true, then let dind-feature take background values
     elif last_mask[dind]:
         masked_inputs[:, dind] = data[:, dind]
         last_mask[dind] = False
+
+    # If false, then let dinf-feature take sample of interest value
     else:
         masked_inputs[:, dind] = x[dind]
         last_mask[dind] = True
@@ -207,18 +230,26 @@ def _delta_masking(masks, x, curr_delta_inds, varying_rows_out,
     i = -1
     masks_pos = 0
     output_pos = 0
+
+    # The number of samples from background dataset
     N = masked_inputs_tmp.shape[0]
+
     while masks_pos < len(masks):
         i += 1
 
         # update the tmp masked inputs array
         dpos = 0
         curr_delta_inds[0] = masks[masks_pos]
+        # get feature index from masks at masks_pos (always begins with delta_mask_noop_value=2147483647)
+
+        # This (usually) does not happen ===
         while curr_delta_inds[dpos] < 0: # negative values mean keep going
             curr_delta_inds[dpos] = -curr_delta_inds[dpos] - 1 # -value + 1 is the original index that needs flipped
             _single_delta_mask(curr_delta_inds[dpos], masked_inputs_tmp, last_mask, data, x, noop_code)
             dpos += 1
             curr_delta_inds[dpos] = masks[masks_pos + dpos]
+        # This (usually) does not happen ===
+
         _single_delta_mask(curr_delta_inds[dpos], masked_inputs_tmp, last_mask, data, x, noop_code)
 
         # copy the tmp masked inputs array to the output
@@ -227,12 +258,17 @@ def _delta_masking(masks, x, curr_delta_inds, varying_rows_out,
 
         # mark which rows have been updated, so we can only evaluate the model on the rows we need to
         if i == 0:
+            # In the first iteration, we simply take the background dataset
             varying_rows_out[i, :] = True
 
         else:
             # only one column was changed
             if dpos == 0:
+                # variants.shape = [nSamplesBackground, nFeatures]
+
                 varying_rows_out[i, :] = variants[:, curr_delta_inds[dpos]]
+                # >> Mask to indicate for the current feature, which background samples has variation
+                #    while looping through i (feature permutation iterator)
 
             # more than one column was changed
             else:

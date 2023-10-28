@@ -51,10 +51,8 @@ class PermutationExplainer(Explainer):
             raise ValueError("masker cannot be None.")
 
         super().__init__(model, masker, link=link, linearize_link=linearize_link, feature_names=feature_names)
-
         if not isinstance(self.model, Model):
             self.model = Model(self.model)
-
         # if we have gotten default arguments for the call function we need to wrap ourselves in a new class that
         # has a call function with those new default arguments
         if len(call_args) > 0:
@@ -84,7 +82,7 @@ class PermutationExplainer(Explainer):
     def explain_row(self, *row_args, max_evals, main_effects, error_bounds, batch_size, outputs, silent):
         """ Explains a single row and returns the tuple (row_values, row_expected_values, row_mask_shapes).
         """
-
+        
         # build a masked version of the model for the current input sample
         fm = MaskedModel(self.model, self.masker, self.link, self.linearize_link, *row_args)
 
@@ -102,17 +100,27 @@ class PermutationExplainer(Explainer):
             else:
                 raise NotImplementedError("The masker passed has a .clustering attribute that is not yet supported by the Permutation explainer!")
 
-        # loop over many permutations
         inds = fm.varying_inputs()
+        # inds indicates the feature indices that exhibit differences among the samples
+        # Example: For the background dataset for Stability-SMS, AFO shows zero variation
+
         inds_mask = np.zeros(len(fm), dtype=bool)
         inds_mask[inds] = True
+        # inds_mask is a boolean mask for each feature simply indicating variation
+
         masks = np.zeros(2*len(inds)+1, dtype=int)
         masks[0] = MaskedModel.delta_mask_noop_value
+        # For antithetic sampling, masks has (nFeatures that show variation * 2) + 1 elements
+
         npermutations = max_evals // (2*len(inds)+1)
+        # // division result rounded to the nearest lowest integer
+
         row_values = None
         row_values_history = None
         history_pos = 0
         main_effect_values = None
+
+        # Loop over many permutations
         if len(inds) > 0:
             for _ in range(npermutations):
 
@@ -135,7 +143,6 @@ class PermutationExplainer(Explainer):
 
                 # evaluate the masked model
                 outputs = fm(masks, zero_index=0, batch_size=batch_size)
-
                 if row_values is None:
                     row_values = np.zeros((len(fm),) + outputs.shape[1:])
 

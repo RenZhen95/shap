@@ -34,6 +34,8 @@ class MaskedModel:
             ]
         else:
             self._variants = None
+        # Note (Liaw):: self._variants is simply a boolean mask indicating which feature of the test sample
+        # differs to that of the samples from the background data
 
         # compute the length of the mask (and hence our length)
         if hasattr(self.masker, "shape"):
@@ -48,7 +50,6 @@ class MaskedModel:
         else:
             self._masker_rows = None# # just assuming...
             self._masker_cols = sum(np.prod(a.shape) for a in self.args)
-
         self._linearizing_weights = None
 
     def __call__(self, masks, zero_index=None, batch_size=None):
@@ -192,17 +193,22 @@ class MaskedModel:
 
         assert getattr(self.masker, "supports_delta_masking", None) is not None, "Masker must support delta masking!"
 
+        # The masker will accept the sample of interest to explain as self.args
         masked_inputs, varying_rows = self.masker(masks, *self.args)
+        # masked_inputs : Inputs from background data, which have been masked with the feature-of-interest's
+        # feature value
+        # varying_rows  : For each nFeature*2, indicate which background sample has varying values (True)
         num_varying_rows = varying_rows.sum(1)
 
+        # Only considered subset of background samples with variation (I believe ...)
         subset_masked_inputs = [arg[varying_rows.reshape(-1)] for arg in masked_inputs]
-
         batch_positions = np.zeros(len(varying_rows)+1, dtype=int)
         for i in range(len(varying_rows)):
             batch_positions[i+1] = batch_positions[i] + num_varying_rows[i]
 
-        # joined_masked_inputs = self._stack_inputs(all_masked_inputs)
+        # Outputs of the masked dataset (checked for varying inputs)
         outputs = self.model(*subset_masked_inputs)
+
         _assert_output_input_match(subset_masked_inputs, outputs)
 
         if self.linearize_link and self.link != links.identity and self._linearizing_weights is None:
@@ -211,7 +217,7 @@ class MaskedModel:
 
         averaged_outs = np.zeros((varying_rows.shape[0],) + outputs.shape[1:])
         last_outs = np.zeros((varying_rows.shape[1],) + outputs.shape[1:])
-        #print("link", self.link)
+
         _build_fixed_output(averaged_outs, last_outs, outputs, batch_positions, varying_rows, num_varying_rows, self.link, self._linearizing_weights)
 
         return averaged_outs
@@ -388,6 +394,7 @@ def _build_fixed_multi_output(averaged_outs, last_outs, outputs, batch_positions
     # here we can assume that the outputs will always be the same size, and we need
     # to carry over evaluation outputs
     sample_count = last_outs.shape[0]
+
     for i in range(0, len(averaged_outs)):
         if batch_positions[i] < batch_positions[i+1]:
             if num_varying_rows[i] == sample_count:

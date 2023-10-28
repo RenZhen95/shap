@@ -68,12 +68,10 @@ class Explainer(Serializable):
             be the names of all the output classes. This parameter is optional. When output_names is None then
             the Explanation objects produced by this explainer will not have any output_names, which could effect
             downstream plots.
-
         seed: None or int
             seed for reproducibility
 
         """
-
         self.model = model
         self.output_names = output_names
         self.feature_names = feature_names
@@ -87,6 +85,7 @@ class Explainer(Serializable):
                 self.masker = maskers.Partition(masker)
             else:
                 self.masker = maskers.Independent(masker)
+
         elif safe_isinstance(masker, ["transformers.PreTrainedTokenizer", "transformers.tokenization_utils_base.PreTrainedTokenizerBase"]):
             if is_transformers_lm(self.model):
                 # auto assign text infilling if model is a transformer model with lm head
@@ -139,11 +138,9 @@ class Explainer(Serializable):
         # if we are called directly (as opposed to through super()) then we convert ourselves to the subclass
         # that implements the specific algorithm that was chosen
         if self.__class__ is Explainer:
-
             # do automatic algorithm selection
             #from .. import explainers
             if algorithm == "auto":
-
                 # use implementation-aware methods if possible
                 if explainers.LinearExplainer.supports_model_with_masker(model, self.masker):
                     algorithm = "linear"
