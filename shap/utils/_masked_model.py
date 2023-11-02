@@ -34,8 +34,8 @@ class MaskedModel:
             ]
         else:
             self._variants = None
-        # Note (Liaw):: self._variants is simply a boolean mask indicating feature values of the
-        # background dataset that varies to that of the sample-of-interest
+        # Note (Liaw):: self._variants is simply a boolean mask indicating feature values
+        # of the background dataset that varies to that of the sample-of-interest
 
         # compute the length of the mask (and hence our length)
         if hasattr(self.masker, "shape"):
@@ -54,13 +54,14 @@ class MaskedModel:
 
     def __call__(self, masks, zero_index=None, batch_size=None):
 
-        # if we are passed a 1D array of indexes then we are delta masking and have a special implementation
+        # if we are passed a 1D array of indexes then we are delta masking and have a
+        # special implementation
         if len(masks.shape) == 1:
             if getattr(self.masker, "supports_delta_masking", False):
                 return self._delta_masking_call(masks, zero_index=zero_index, batch_size=batch_size)
 
-            # we need to convert from delta masking to a full masking call because we were given a delta masking
-            # input but the masker does not support delta masking
+            # we need to convert from delta masking to a full masking call because we were
+            # given a delta masking input but the masker does not support delta masking
             else:
                 full_masks = np.zeros((int(np.sum(masks >= 0)), self._masker_cols), dtype=bool)
                 _convert_delta_mask_to_full(masks, full_masks)

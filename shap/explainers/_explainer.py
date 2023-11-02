@@ -23,8 +23,11 @@ class Explainer(Serializable):
     the particular estimation algorithm that was chosen.
     """
 
-    def __init__(self, model, masker=None, link=links.identity, algorithm="auto", output_names=None, feature_names=None, linearize_link=True,
-                 seed=None, **kwargs):
+    def __init__(
+            self, model, max_samples=None, masker=None, link=links.identity,
+            algorithm="auto", output_names=None, feature_names=None, linearize_link=True,
+            seed=None, **kwargs
+    ):
         """ Build a new explainer for the passed model.
 
         Parameters
@@ -32,6 +35,10 @@ class Explainer(Serializable):
         model : object or function
             User supplied function or model object that takes a dataset of samples and
             computes the output of the model for those samples.
+
+        max_samples : int
+            User supplied maximum number of samples to take from the background dataset. None
+            will take all samples
 
         masker : function, numpy.array, pandas.DataFrame, tokenizer, None, or a list of these for each model input
             The function used to "mask" out hidden features of the form `masked_args = masker(*model_args, mask=mask)`.
@@ -82,9 +89,9 @@ class Explainer(Serializable):
             or ((isinstance(masker, np.ndarray) or scipy.sparse.issparse(masker)) and len(masker.shape) == 2)
         ):
             if algorithm == "partition":
-                self.masker = maskers.Partition(masker)
+                self.masker = maskers.Partition(masker, max_samples=max_samples)
             else:
-                self.masker = maskers.Independent(masker)
+                self.masker = maskers.Independent(masker, max_samples=max_samples)
 
         elif safe_isinstance(masker, ["transformers.PreTrainedTokenizer", "transformers.tokenization_utils_base.PreTrainedTokenizerBase"]):
             if is_transformers_lm(self.model):
@@ -175,8 +182,13 @@ class Explainer(Serializable):
                 self.__class__ = explainers.ExactExplainer
                 explainers.ExactExplainer.__init__(self, self.model, self.masker, link=self.link, feature_names=self.feature_names, linearize_link=linearize_link, **kwargs)
             elif algorithm == "permutation":
+                # Liaw:: Made some modifications to accomodate for max_samples
                 self.__class__ = explainers.PermutationExplainer
-                explainers.PermutationExplainer.__init__(self, self.model, self.masker, link=self.link, feature_names=self.feature_names, linearize_link=linearize_link, seed=seed, **kwargs)
+                explainers.PermutationExplainer.__init__(
+                    self, self.model, self.masker, link=self.link,
+                    feature_names=self.feature_names, linearize_link=linearize_link,
+                    max_samples=max_samples, seed=seed, **kwargs
+                )
             elif algorithm == "partition":
                 self.__class__ = explainers.PartitionExplainer
                 explainers.PartitionExplainer.__init__(self, self.model, self.masker, link=self.link, feature_names=self.feature_names, linearize_link=linearize_link, output_names=self.output_names, **kwargs)
@@ -207,7 +219,6 @@ class Explainer(Serializable):
 
         # if max_evals == "auto":
         #     self._brute_force_fallback
-
         start_time = time.time()
 
         if issubclass(type(self.masker), maskers.OutputComposite) and len(args)==2:
@@ -258,6 +269,7 @@ class Explainer(Serializable):
         clustering = []
         output_names = []
         error_std = []
+
         if callable(getattr(self.masker, "feature_names", None)):
             feature_names = [[] for _ in range(len(args))]
         for row_args in show_progress(zip(*args), num_rows, self.__class__.__name__+" explainer", silent):

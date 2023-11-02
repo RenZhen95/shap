@@ -21,7 +21,10 @@ class PermutationExplainer(Explainer):
     structures with partition trees, something not currently implemented for KernalExplainer or SamplingExplainer.
     """
 
-    def __init__(self, model, masker, link=links.identity, feature_names=None, linearize_link=True, seed=None, **call_args):
+    def __init__(
+            self, model, masker, link=links.identity, feature_names=None,
+            linearize_link=True, max_samples=None, seed=None, **call_args
+    ):
         """ Build an explainers.Permutation object for the given model using the given masker object.
 
         Parameters
@@ -50,7 +53,11 @@ class PermutationExplainer(Explainer):
         if masker is None:
             raise ValueError("masker cannot be None.")
 
-        super().__init__(model, masker, link=link, linearize_link=linearize_link, feature_names=feature_names)
+        super().__init__(
+            model, max_samples, masker, link=link,
+            linearize_link=linearize_link, feature_names=feature_names
+        )
+
         if not isinstance(self.model, Model):
             self.model = Model(self.model)
         # if we have gotten default arguments for the call function we need to wrap ourselves in a new class that
@@ -82,7 +89,6 @@ class PermutationExplainer(Explainer):
     def explain_row(self, *row_args, max_evals, main_effects, error_bounds, batch_size, outputs, silent):
         """ Explains a single row and returns the tuple (row_values, row_expected_values, row_mask_shapes).
         """
-        
         # build a masked version of the model for the current input sample
         fm = MaskedModel(self.model, self.masker, self.link, self.linearize_link, *row_args)
 
@@ -126,7 +132,8 @@ class PermutationExplainer(Explainer):
 
                 # shuffle the indexes so we get a random permutation ordering
                 if row_clustering is not None:
-                    # [TODO] This is shuffle does not work when inds is not a complete set of integers from 0 to M TODO: still true?
+                    # [TODO] This is shuffle does not work when inds is not a complete set
+                    # of integers from 0 to M TODO: still true?
                     #assert len(inds) == len(fm), "Need to support partition shuffle when not all the inds vary!!"
                     partition_tree_shuffle(inds, inds_mask, row_clustering)
                 else:

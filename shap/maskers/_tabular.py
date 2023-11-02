@@ -55,6 +55,10 @@ class Tabular(Masker):
             self.cov = data.get("cov", None)
             data = np.expand_dims(data["mean"], 0)
 
+        # Liaw:: Added
+        if max_samples is None:
+            max_samples = data.shape[0]
+
         if hasattr(data, "shape") and data.shape[0] > max_samples:
             data = utils.sample(data, max_samples)
 
