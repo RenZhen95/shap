@@ -8,6 +8,11 @@ from ..utils import format_value
 from . import colors
 from ._labels import labels
 
+# # Added by Liaw
+# def convertUnits(_featureNames, _features):
+#     for feat in _featureNames:
+        
+
 
 # TODO: If we make a JS version of this plot then we could let users click on a bar and then see the dependence
 # plot that is associated with that feature get overlaid on the plot...it would quickly allow users to answer
@@ -137,7 +142,9 @@ def waterfall(shap_values, max_display=10, show=True):
             yticklabels[rng[i]] = feature_names[order[i]]
         else:
             if np.issubdtype(type(features[order[i]]), np.number):
-                yticklabels[rng[i]] = format_value(float(features[order[i]]), "%0.03f") + " = " + feature_names[order[i]]
+                # Liaw hack
+                yticklabels[rng[i]] = feature_names[order[i]]
+                # yticklabels[rng[i]] = format_value(float(features[order[i]]), "%0.03f") + " = " + feature_names[order[i]]
             else:
                 yticklabels[rng[i]] = str(features[order[i]]) + " = " + str(feature_names[order[i]])
 
