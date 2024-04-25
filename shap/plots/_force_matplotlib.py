@@ -197,6 +197,66 @@ def draw_labels(fig, ax, out_value, features, feature_type, offset_text, total_e
 
     return fig, ax
 
+def prettify_feature_values(_features):
+    """Function tailored for SMS paper by Liaw"""
+    for f in _features:
+        feature_name = f[2]
+    
+        # NAVs       = * 1.8 / np.pi [°/(%G.C)]
+        if "NAV" in feature_name:
+            f[1] = str(round(float(f[1]) * 1.8 / np.pi, 3))
+            f[1] = f"{f[1]} °/(%G.C)"
+    
+        # Angles     = * 180 / np.pi [°]
+        elif "Angle" in feature_name:
+            f[1] = str(round(float(f[1]) * 180 / np.pi, 3))
+            f[1] = f"{f[1]} °"
+    
+        # Cadence    = * 60 [steps/min]
+        elif "Cadence" in feature_name:
+            f[1] = str(round(float(f[1]) * 60, 3))
+            f[1] = f"{f[1]} steps/min"
+    
+        # Gait speed = * 3.6 [km/h]
+        elif "Gait Speed" in feature_name:
+            f[1] = str(round(float(f[1]) * 3.6, 3))
+            f[1] = f"{f[1]} km/h"
+    
+        # Gait portions
+        elif "por." in feature_name:
+            f[1] = str(round(float(f[1]) * 100, 2))
+            f[1] = f"{f[1]} %G.C"
+    
+        elif " Start " in feature_name:
+            f[1] = str(round(float(f[1]) * 100, 2))
+            f[1] = f"{f[1]} %G.C"
+    
+        elif " Duration " in feature_name:
+            f[1] = str(round(float(f[1]) * 100, 2))
+            f[1] = f"{f[1]} %G.C"
+    
+        elif "time" in feature_name:
+            f[1] = str(round(float(f[1]), 2))
+            f[1] = f"{f[1]} s"
+    
+        elif "Time" in feature_name:
+            f[1] = str(round(float(f[1]), 2))
+            f[1] = f"{f[1]} s"
+    
+        elif "Cane?" in feature_name:
+            if f[1] == "1.0":
+                f[1] = "Yes"
+            elif f[1] == "0.0":
+                f[1] = "No"
+    
+        elif "Orthosis" in feature_name:
+            if f[1] == "1.0":
+                f[1] = "Yes"
+            elif f[1] == "0.0":
+                f[1] = "No"
+    
+        else:
+            f[1] = str(round(float(f[1]), 2))
 
 def format_data(data):
     """Format data."""
@@ -207,6 +267,7 @@ def format_data(data):
                              for x in data['features'].keys() if data['features'][x]['effect'] < 0])
 
     neg_features = np.array(sorted(neg_features, key=lambda x: float(x[0]), reverse=False))
+    prettify_feature_values(neg_features)
 
     # Format positive features
     pos_features = np.array([[data['features'][x]['effect'],
@@ -214,6 +275,7 @@ def format_data(data):
                               data['featureNames'][x]]
                              for x in data['features'].keys() if data['features'][x]['effect'] >= 0])
     pos_features = np.array(sorted(pos_features, key=lambda x: float(x[0]), reverse=True))
+    prettify_feature_values(pos_features)
 
     # Define link function
     if data['link'] == 'identity':
@@ -268,16 +330,16 @@ def draw_output_element(out_name, out_value, ax):
     font0 = FontProperties()
     font = font0.copy()
     font.set_weight('bold')
-    text_out_val = plt.text(out_value, 0.25, f'{out_value:.2f}',
+    text_out_val = plt.text(out_value, 0.275, f'{out_value:.2f}',
                             fontproperties=font,
                             fontsize=14,
                             horizontalalignment='center')
-    text_out_val.set_bbox(dict(facecolor='white', edgecolor='white'))
+    # text_out_val.set_bbox(dict(facecolor='white', edgecolor='white'))
 
-    text_out_val = plt.text(out_value, 0.33, out_name,
+    text_out_val = plt.text(out_value, 0.355, out_name,
                             fontsize=12, alpha=0.5,
                             horizontalalignment='center')
-    text_out_val.set_bbox(dict(facecolor='white', edgecolor='white'))
+    # text_out_val.set_bbox(dict(facecolor='white', edgecolor='white'))
 
 
 def draw_base_element(base_value, ax):
@@ -285,27 +347,30 @@ def draw_base_element(base_value, ax):
     line = lines.Line2D(x, y, lw=2., color='#F2F2F2')
     line.set_clip_on(False)
     ax.add_line(line)
+    text_out_val = plt.text(base_value, 0.27, f'{base_value:.2f}',
+                            fontsize=12,
+                            horizontalalignment='center')
 
-    text_out_val = plt.text(base_value, 0.33, 'base value',
+    text_out_val = plt.text(base_value, 0.34, 'Base Value',
                             fontsize=12, alpha=0.5,
                             horizontalalignment='center')
-    text_out_val.set_bbox(dict(facecolor='white', edgecolor='white'))
+    # text_out_val.set_bbox(dict(facecolor='white', edgecolor='white'))
 
 
 def draw_higher_lower_element(out_value, offset_text):
-    plt.text(out_value - offset_text, 0.405, 'higher',
+    plt.text(out_value - offset_text, 0.45, 'higher',
              fontsize=13, color='#FF0D57',
              horizontalalignment='right')
 
-    plt.text(out_value + offset_text, 0.405, 'lower',
+    plt.text(out_value + offset_text, 0.45, 'lower',
              fontsize=13, color='#1E88E5',
              horizontalalignment='left')
 
-    plt.text(out_value, 0.4, r'$\leftarrow$',
+    plt.text(out_value, 0.45, r'$\leftarrow$',
              fontsize=13, color='#1E88E5',
              horizontalalignment='center')
 
-    plt.text(out_value, 0.425, r'$\rightarrow$',
+    plt.text(out_value, 0.475, r'$\rightarrow$',
              fontsize=13, color='#FF0D57',
              horizontalalignment='center')
 
@@ -386,8 +451,12 @@ def draw_additive_plot(data, figsize, show, text_rotation=0, min_perc=0.05):
     fig, ax = draw_labels(fig, ax, out_value, pos_features, 'positive',
                           offset_text, total_effect, min_perc=min_perc, text_rotation=text_rotation)
 
+    # Overwriting the xticks
+    ax.set_xticks(np.arange(0, 4, 1))
+    ax.tick_params(axis='x', which='major', labelsize='large')
+
     # higher lower legend
-    draw_higher_lower_element(out_value, offset_text)
+    # draw_higher_lower_element(out_value, offset_text)
 
     # Add label for base value
     draw_base_element(base_value, ax)
